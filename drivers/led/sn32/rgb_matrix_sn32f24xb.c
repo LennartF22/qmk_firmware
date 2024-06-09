@@ -102,7 +102,7 @@ static uint8_t last_key_col                            = 0;   // key col scan co
 static uint8_t led_duty_cycle[SN32_RGB_MATRIX_ROWS_HW] = {0}; // track the channel duty cycle
 #    endif
 #endif
-#if (DIODE_DIRECTION == ROW2COL)
+#if (SN32_PWM_DIRECTION == ROW2COL && DIODE_DIRECTION == ROW2COL)
 static matrix_row_t row_shifter = MATRIX_ROW_SHIFTER;
 #endif
 extern matrix_row_t   raw_matrix[MATRIX_ROWS];                       // raw values
@@ -216,7 +216,7 @@ static void shared_matrix_scan_keys(matrix_row_t current_matrix[], uint8_t curre
             // For each col...
             matrix_row_t row_shifter = MATRIX_ROW_SHIFTER;
             for (uint8_t col_index = 0; col_index < MATRIX_COLS; col_index++, row_shifter <<= 1) {
-                matrix_read_rows_on_col(current_matrix, current_key, row_shifter);
+                matrix_read_rows_on_col(current_matrix, col_index, row_shifter);
             }
 #    endif // SN32_PWM_DIRECTION
 #endif     // DIODE_DIRECTION
