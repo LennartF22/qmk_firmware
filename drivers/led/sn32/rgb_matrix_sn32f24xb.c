@@ -112,6 +112,7 @@ static volatile bool  matrix_locked                         = false; // matrix u
 static volatile bool  matrix_scanned                        = false;
 static const uint32_t periodticks                           = RGB_MATRIX_MAXIMUM_BRIGHTNESS;
 static const uint32_t freq                                  = (RGB_MATRIX_HUE_STEP * RGB_MATRIX_SAT_STEP * RGB_MATRIX_VAL_STEP * RGB_MATRIX_SPD_STEP * RGB_MATRIX_LED_PROCESS_LIMIT);
+static bool           led_initialized = false;
 static const pin_t    led_row_pins[SN32_RGB_MATRIX_ROWS_HW] = SN32_RGB_MATRIX_ROW_PINS; // We expect a R,B,G order here
 static const pin_t    led_col_pins[SN32_RGB_MATRIX_COLS]    = SN32_RGB_MATRIX_COL_PINS;
 static RGB            led_state[SN32F24XB_LED_COUNT];     // led state buffer
@@ -468,16 +469,13 @@ static void rgb_callback(PWMDriver *pwmp) {
 }
 
 void sn32f24xb_init(void) {
+    led_initialized = true;
     for (uint8_t x = 0; x < SN32_RGB_MATRIX_ROWS_HW; x++) {
         setPinOutput(led_row_pins[x]);
         writePinLow(led_row_pins[x]);
     }
     // Determine which PWM channels we need to control
     rgb_ch_ctrl(&pwmcfg);
-    // initialize matrix state: all keys off
-    for (uint8_t i = 0; i < MATRIX_ROWS; i++) {
-        shared_matrix[i] = 0;
-    }
     pwmStart(&PWMD1, &pwmcfg);
     shared_matrix_rgb_enable();
 }
@@ -528,12 +526,27 @@ void sn32f24xb_set_color_all(uint8_t r, uint8_t g, uint8_t b) {
 }
 
 bool matrix_scan_custom(matrix_row_t current_matrix[]) {
-    if (!matrix_scanned) return false; // Nothing to process until we have the matrix scanned
+    if (!led_initialized) {
+        // Simply scan matrix as long as lighting has not been initialized
+#if (DIODE_DIRECTION == COL2ROW)
+        for (uint8_t row = 0; row < MATRIX_ROWS; row++) {
+            matrix_read_cols_on_row(shared_matrix, row);
+        }
+#elif (DIODE_DIRECTION == ROW2COL)
+        matrix_row_t row_shifter = MATRIX_ROW_SHIFTER;
+        for (uint8_t col = 0; col < MATRIX_COLS; col++) {
+            matrix_read_rows_on_col(shared_matrix, col, row_shifter);
+            row_shifter <<= 1;
+        }
+#endif // DIODE_DIRECTION
+    } else if (!matrix_scanned) {
+        return false; // Nothing to process until we have the matrix scanned again
+    } else {
+        matrix_scanned = false;
+    }
 
     bool changed = memcmp(raw_matrix, shared_matrix, sizeof(shared_matrix)) != 0;
     if (changed) memcpy(raw_matrix, shared_matrix, sizeof(shared_matrix));
-
-    matrix_scanned = false;
 
     return changed;
 }
