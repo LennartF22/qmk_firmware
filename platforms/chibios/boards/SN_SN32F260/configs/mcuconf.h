@@ -45,7 +45,7 @@
  * PWM driver system settings.
  */
 #define SN32_PWM_USE_CT16B1 TRUE
-#define SN32_PWM_NO_RESET TRUE
+#define SN32_PWM_USE_ONESHOT TRUE
 /*
  * USB driver system settings.
  */

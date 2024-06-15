@@ -1,8 +1,3 @@
-### Indicators
-
-- "M" indicator: `B12`
-- "G" indicator: `B14`
-
 ### Encoder LEDs
 
 Encoder position:

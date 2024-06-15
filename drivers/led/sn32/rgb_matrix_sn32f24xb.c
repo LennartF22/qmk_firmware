@@ -110,7 +110,7 @@ extern matrix_row_t   matrix[MATRIX_ROWS];                           // debounce
 static matrix_row_t   shared_matrix[MATRIX_ROWS];                    // scan values
 static volatile bool  matrix_locked                         = false; // matrix update check
 static volatile bool  matrix_scanned                        = false;
-static const uint32_t periodticks                           = RGB_MATRIX_MAXIMUM_BRIGHTNESS;
+static const uint32_t periodticks                           = RGB_MATRIX_MAXIMUM_BRIGHTNESS + 60; // + 2 LENNART
 static const uint32_t freq                                  = (RGB_MATRIX_HUE_STEP * RGB_MATRIX_SAT_STEP * RGB_MATRIX_VAL_STEP * RGB_MATRIX_SPD_STEP * RGB_MATRIX_LED_PROCESS_LIMIT);
 static bool           led_initialized = false;
 static const pin_t    led_row_pins[SN32_RGB_MATRIX_ROWS_HW] = SN32_RGB_MATRIX_ROW_PINS; // We expect a R,B,G order here
@@ -182,11 +182,6 @@ static void rgb_ch_ctrl(PWMConfig *cfg) {
 }
 static void rgb_callback(PWMDriver *pwmp);
 
-static void shared_matrix_rgb_enable(void) {
-    pwmcfg.callback = rgb_callback;
-    pwmEnablePeriodicNotification(&PWMD1);
-}
-
 static void shared_matrix_scan_keys(matrix_row_t current_matrix[], uint8_t current_key, uint8_t last_key) {
     // Scan the key matrix row or col, depending on DIODE_DIRECTION
     static uint8_t first_scanned;
@@ -248,45 +243,32 @@ static void shared_matrix_rgb_disable_output(void) {
 }
 
 static void update_pwm_channels(PWMDriver *pwmp) {
-    // Advance to the next LED RGB channels
-    current_row++;
-    /* Check if counter has wrapped around, reset before the next pass */
-    if (current_row == SN32_RGB_MATRIX_ROWS_HW) current_row = 0;
+    current_key_row = current_row / SN32_RGB_MATRIX_ROW_CHANNELS;
     uint8_t last_key_row = current_key_row;
     // Advance to the next key matrix row
-#    if (SN32_PWM_CONTROL == HARDWARE_PWM)
-    if (current_row % SN32_RGB_MATRIX_ROW_CHANNELS == 2) current_key_row++;
-#    elif (SN32_PWM_CONTROL == SOFTWARE_PWM)
-    if (current_row % SN32_RGB_MATRIX_ROW_CHANNELS == 0) current_key_row++;
-#    endif // SN32_PWM_CONTROL
-    /* Check if counter has wrapped around, reset before the next pass */
-    if (current_key_row == SN32_RGB_MATRIX_ROWS) current_key_row = 0;
+    if (current_row % SN32_RGB_MATRIX_ROW_CHANNELS == 0) {
+        last_key_row = (current_key_row - 1 + SN32_RGB_MATRIX_ROWS) % SN32_RGB_MATRIX_ROWS;
+    }
+
     // Disable LED output before scanning the key matrix
     if (current_key_row < ROWS_PER_HAND) {
         shared_matrix_rgb_disable_output();
         shared_matrix_scan_keys(shared_matrix, current_key_row, last_key_row);
     }
-    bool enable_pwm_output = false;
     for (uint8_t current_key_col = 0; current_key_col < SN32_RGB_MATRIX_COLS; current_key_col++) {
         uint8_t led_index = g_led_config.matrix_co[current_key_row][current_key_col];
-#    if (SN32_PWM_CONTROL == SOFTWARE_PWM)
         if (led_index >= SN32F24XB_LED_COUNT) continue;
-#    endif // SN32_PWM_CONTROL
-        // Check if we need to enable RGB output
-        if (led_state[led_index].b > 0) enable_pwm_output |= true;
-        if (led_state[led_index].g > 0) enable_pwm_output |= true;
-        if (led_state[led_index].r > 0) enable_pwm_output |= true;
             // Update matching RGB channel PWM configuration
 #    if (SN32_PWM_CONTROL == HARDWARE_PWM)
         switch (current_row % SN32_RGB_MATRIX_ROW_CHANNELS) {
             case 0:
-                pwmEnableChannel(pwmp, chan_col_order[current_key_col], led_state[led_index].b);
+                pwmEnableChannel(pwmp, chan_col_order[current_key_col], led_state[led_index].r);
                 break;
             case 1:
-                pwmEnableChannel(pwmp, chan_col_order[current_key_col], led_state[led_index].g);
+                pwmEnableChannel(pwmp, chan_col_order[current_key_col], led_state[led_index].b);
                 break;
             case 2:
-                pwmEnableChannel(pwmp, chan_col_order[current_key_col], led_state[led_index].r);
+                pwmEnableChannel(pwmp, chan_col_order[current_key_col], led_state[led_index].g);
                 break;
             default:;
         }
@@ -316,13 +298,17 @@ static void update_pwm_channels(PWMDriver *pwmp) {
 #    endif
     }
     // Enable RGB output
-    if (enable_pwm_output) {
+#    if (SN32_PWM_CONTROL == HARDWARE_PWM)
 #    if (SN32_RGB_OUTPUT_ACTIVE_LEVEL == SN32_RGB_OUTPUT_ACTIVE_HIGH)
         writePinHigh(led_row_pins[current_row]);
 #    elif (SN32_RGB_OUTPUT_ACTIVE_LEVEL == SN32_RGB_OUTPUT_ACTIVE_LOW)
         writePinLow(led_row_pins[current_row]);
 #    endif
-    }
+#    endif
+
+    // Advance to the next LED RGB channels
+    /* Check if counter has wrapped around, reset before the next pass */
+    if (++current_row == SN32_RGB_MATRIX_ROWS_HW) current_row = 0;
 }
 #elif (SN32_PWM_DIRECTION == ROW2COL)
 
@@ -420,8 +406,6 @@ static void update_pwm_channels(PWMDriver *pwmp) {
 #endif         // SN32_PWM_DIRECTION == ROW2COL
 
 static void rgb_callback(PWMDriver *pwmp) {
-    // Disable the interrupt
-    pwmDisablePeriodicNotification(pwmp);
 #if ((SN32_PWM_CONTROL == SOFTWARE_PWM) && (SN32_PWM_DIRECTION == COL2ROW))
     for (uint8_t pwm_cnt = 0; pwm_cnt < (SN32_RGB_MATRIX_COLS * RGB_MATRIX_HUE_STEP); pwm_cnt++) {
         uint8_t pwm_index = (pwm_cnt % SN32_RGB_MATRIX_COLS);
@@ -462,9 +446,12 @@ static void rgb_callback(PWMDriver *pwmp) {
     update_pwm_channels(pwmp);
     chSysLockFromISR();
     // Advance the timer to just before the wrap-around, that will start a new PWM cycle
+    CT16B1_ResetTimer();
     pwm_lld_change_counter(pwmp, 0xFFFF);
-    // Enable the interrupt
-    pwmEnablePeriodicNotificationI(pwmp);
+  pwmp->ct->IC       &= 0x1FFFFFF;           /* Clear pending IRQs.          */
+
+  /* Timer configured and started.*/
+    pwmp->ct->TMRCTRL |= mskCT16_CEN_EN; // Restart: TODO
     chSysUnlockFromISR();
 }
 
@@ -476,8 +463,10 @@ void sn32f24xb_init(void) {
     }
     // Determine which PWM channels we need to control
     rgb_ch_ctrl(&pwmcfg);
+    pwmcfg.callback = rgb_callback;
+    pwmEnablePeriodicNotification(&PWMD1); // Muss das wirklich danach? Davor eigentlich besser!
     pwmStart(&PWMD1, &pwmcfg);
-    shared_matrix_rgb_enable();
+    pwmEnablePeriodicNotification(&PWMD1);
 }
 
 void sn32f24xb_flush(void) {
