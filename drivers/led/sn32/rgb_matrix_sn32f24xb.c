@@ -2,6 +2,7 @@
 #include "matrix.h"
 #include "rgb_matrix.h"
 #include "sn32f24xb.h"
+#include "wait.h"
 
 #define ROWS_PER_HAND (MATRIX_ROWS)
 
@@ -89,7 +90,6 @@
 #if (SN32_PWM_DIRECTION == COL2ROW)
 static uint8_t chan_col_order[SN32_RGB_MATRIX_COLS] = {0}; // track the channel col order
 static uint8_t current_row                          = 0;   // LED row scan counter
-static uint8_t current_key_row                      = 0;   // key row scan counter
 #    if (SN32_PWM_CONTROL == SOFTWARE_PWM)
 static uint8_t led_duty_cycle[SN32_RGB_MATRIX_COLS] = {0}; // track the channel duty cycle
 #    endif
@@ -102,15 +102,11 @@ static uint8_t last_key_col                            = 0;   // key col scan co
 static uint8_t led_duty_cycle[SN32_RGB_MATRIX_ROWS_HW] = {0}; // track the channel duty cycle
 #    endif
 #endif
-#if (SN32_PWM_DIRECTION == ROW2COL && DIODE_DIRECTION == ROW2COL)
-static matrix_row_t row_shifter = MATRIX_ROW_SHIFTER;
-#endif
 extern matrix_row_t   raw_matrix[MATRIX_ROWS];                       // raw values
 extern matrix_row_t   matrix[MATRIX_ROWS];                           // debounced values
 static matrix_row_t   shared_matrix[MATRIX_ROWS];                    // scan values
-static volatile bool  matrix_locked                         = false; // matrix update check
 static volatile bool  matrix_scanned                        = false;
-static const uint32_t periodticks                           = RGB_MATRIX_MAXIMUM_BRIGHTNESS + 60; // + 2 LENNART
+static const uint32_t periodticks                           = RGB_MATRIX_MAXIMUM_BRIGHTNESS + 1;
 static const uint32_t freq                                  = (RGB_MATRIX_HUE_STEP * RGB_MATRIX_SAT_STEP * RGB_MATRIX_VAL_STEP * RGB_MATRIX_SPD_STEP * RGB_MATRIX_LED_PROCESS_LIMIT);
 static bool           led_initialized = false;
 static const pin_t    led_row_pins[SN32_RGB_MATRIX_ROWS_HW] = SN32_RGB_MATRIX_ROW_PINS; // We expect a R,B,G order here
@@ -123,9 +119,39 @@ static const uint8_t underglow_leds[UNDERGLOW_LEDS] = UNDERGLOW_IDX;
 #endif
 
 void matrix_output_unselect_delay(uint8_t line, bool key_pressed) {
-    for (int i = 0; i < TIME_US2I(MATRIX_IO_DELAY); ++i) {
-        __asm__ volatile("" ::: "memory");
-    }
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    asm volatile("nop\n\t nop\n\t nop\n\t nop\n\t   nop\n\t nop\n\t nop\n\t nop\n\t" ::: "memory");
+    /*for (int i = 0; i < MATRIX_IO_DELAY; ++i) {
+        wait_cpuclock(CPU_CLOCK / 1000000L);
+    }*/
 }
 bool matrix_can_read(void) {
     return matrix_scanned;
@@ -182,42 +208,23 @@ static void rgb_ch_ctrl(PWMConfig *cfg) {
 }
 static void rgb_callback(PWMDriver *pwmp);
 
-static void shared_matrix_scan_keys(matrix_row_t current_matrix[], uint8_t current_key, uint8_t last_key) {
+static void shared_matrix_scan_keys(void) {
     // Scan the key matrix row or col, depending on DIODE_DIRECTION
-    static uint8_t first_scanned;
     if (!matrix_scanned) {
-        if (!matrix_locked) {
-            matrix_locked = true;
-            first_scanned = current_key;
-        } else {
-            if ((last_key != current_key) && (current_key == first_scanned)) {
-                matrix_locked = false;
-            }
-        }
-        if (matrix_locked) {
 #if (DIODE_DIRECTION == COL2ROW)
-#    if (SN32_PWM_DIRECTION == DIODE_DIRECTION)
-            matrix_read_cols_on_row(current_matrix, current_key);
-#    else
-            // For each row...
-            for (uint8_t row_index = 0; row_index < ROWS_PER_HAND; row_index++) {
-                matrix_read_cols_on_row(current_matrix, row_index);
-            }
-
-#    endif // DIODE_DIRECTION == SN32_PWM_DIRECTION
-#elif (DIODE_DIRECTION == ROW2COL)
-#    if (SN32_PWM_DIRECTION == DIODE_DIRECTION)
-            matrix_read_rows_on_col(current_matrix, current_key, row_shifter);
-#    else
-            // For each col...
-            matrix_row_t row_shifter = MATRIX_ROW_SHIFTER;
-            for (uint8_t col_index = 0; col_index < MATRIX_COLS; col_index++, row_shifter <<= 1) {
-                matrix_read_rows_on_col(current_matrix, col_index, row_shifter);
-            }
-#    endif // SN32_PWM_DIRECTION
-#endif     // DIODE_DIRECTION
-            matrix_scanned = true;
+        // For each row...
+        for (uint8_t row_index = 0; row_index < ROWS_PER_HAND; ++row_index) {
+            matrix_read_cols_on_row(shared_matrix, row_index);
         }
+#elif (DIODE_DIRECTION == ROW2COL)
+        // For each col...
+        matrix_row_t row_shifter = MATRIX_ROW_SHIFTER;
+        for (uint8_t col_index = 0; col_index < MATRIX_COLS; ++col_index) {
+            matrix_read_rows_on_col(shared_matrix, col_index, row_shifter);
+            row_shifter <<= 1;
+        }
+#endif // DIODE_DIRECTION
+        matrix_scanned = true;
     }
 }
 
@@ -227,7 +234,7 @@ static void shared_matrix_rgb_disable_output(void) {
     // Disable PWM outputs on column pins
     for (uint8_t y = 0; y < SN32_RGB_MATRIX_COLS; y++) {
 #    if (SN32_PWM_CONTROL == HARDWARE_PWM)
-        pwmDisableChannel(&PWMD1, chan_col_order[y]);
+        pwmDisableChannelI(&PWMD1, chan_col_order[y]);
 #    elif (SN32_PWM_CONTROL == SOFTWARE_PWM)
         setPinInput(led_col_pins[y]);
 #    endif // SN32_PWM_CONTROL
@@ -243,35 +250,36 @@ static void shared_matrix_rgb_disable_output(void) {
 }
 
 static void update_pwm_channels(PWMDriver *pwmp) {
-    current_key_row = current_row / SN32_RGB_MATRIX_ROW_CHANNELS;
-    uint8_t last_key_row = current_key_row;
-    // Advance to the next key matrix row
-    if (current_row % SN32_RGB_MATRIX_ROW_CHANNELS == 0) {
-        last_key_row = (current_key_row - 1 + SN32_RGB_MATRIX_ROWS) % SN32_RGB_MATRIX_ROWS;
-    }
+    uint8_t current_key_row = current_row / SN32_RGB_MATRIX_ROW_CHANNELS;
 
     // Disable LED output before scanning the key matrix
-    if (current_key_row < ROWS_PER_HAND) {
-        shared_matrix_rgb_disable_output();
-        shared_matrix_scan_keys(shared_matrix, current_key_row, last_key_row);
+    shared_matrix_rgb_disable_output();
+    if (current_row == 0) {
+        shared_matrix_scan_keys();
     }
+
     for (uint8_t current_key_col = 0; current_key_col < SN32_RGB_MATRIX_COLS; current_key_col++) {
         uint8_t led_index = g_led_config.matrix_co[current_key_row][current_key_col];
         if (led_index >= SN32F24XB_LED_COUNT) continue;
-            // Update matching RGB channel PWM configuration
+        // Update matching RGB channel PWM configuration
 #    if (SN32_PWM_CONTROL == HARDWARE_PWM)
+        uint8_t value;
         switch (current_row % SN32_RGB_MATRIX_ROW_CHANNELS) {
             case 0:
-                pwmEnableChannel(pwmp, chan_col_order[current_key_col], led_state[led_index].r);
+                value = led_state[led_index].r;
                 break;
             case 1:
-                pwmEnableChannel(pwmp, chan_col_order[current_key_col], led_state[led_index].b);
+                value = led_state[led_index].b;
                 break;
             case 2:
-                pwmEnableChannel(pwmp, chan_col_order[current_key_col], led_state[led_index].g);
+                value = led_state[led_index].g;
                 break;
-            default:;
+            default:
         }
+        if (value > 0)
+            pwmEnableChannelI(pwmp, chan_col_order[current_key_col], value - 1);
+        else
+            pwmDisableChannelI(pwmp, chan_col_order[current_key_col]); // redundant
 #    elif (SN32_PWM_CONTROL == SOFTWARE_PWM)
         switch (current_row % SN32_RGB_MATRIX_ROW_CHANNELS) {
             case 0:
@@ -298,13 +306,13 @@ static void update_pwm_channels(PWMDriver *pwmp) {
 #    endif
     }
     // Enable RGB output
-#    if (SN32_PWM_CONTROL == HARDWARE_PWM)
+#if (SN32_PWM_CONTROL == HARDWARE_PWM)
 #    if (SN32_RGB_OUTPUT_ACTIVE_LEVEL == SN32_RGB_OUTPUT_ACTIVE_HIGH)
         writePinHigh(led_row_pins[current_row]);
 #    elif (SN32_RGB_OUTPUT_ACTIVE_LEVEL == SN32_RGB_OUTPUT_ACTIVE_LOW)
         writePinLow(led_row_pins[current_row]);
 #    endif
-#    endif
+#endif
 
     // Advance to the next LED RGB channels
     /* Check if counter has wrapped around, reset before the next pass */
@@ -350,7 +358,7 @@ static void update_pwm_channels(PWMDriver *pwmp) {
     // Disable LED output before scanning the key matrix
     if (current_key_col < MATRIX_COLS) {
         shared_matrix_rgb_disable_output();
-        shared_matrix_scan_keys(shared_matrix, current_key_col, last_key_col);
+        shared_matrix_scan_keys();
     }
 
     for (uint8_t x = 0; x < SN32_RGB_MATRIX_COLS; x++) {
@@ -445,13 +453,9 @@ static void rgb_callback(PWMDriver *pwmp) {
     // Scan the rgb and key matrix
     update_pwm_channels(pwmp);
     chSysLockFromISR();
-    // Advance the timer to just before the wrap-around, that will start a new PWM cycle
-    CT16B1_ResetTimer();
-    pwm_lld_change_counter(pwmp, 0xFFFF);
-  pwmp->ct->IC       &= 0x1FFFFFF;           /* Clear pending IRQs.          */
-
-  /* Timer configured and started.*/
-    pwmp->ct->TMRCTRL |= mskCT16_CEN_EN; // Restart: TODO
+    pwmp->ct->TMRCTRL = mskCT16_CRST;
+    while (pwmp->ct->TMRCTRL & mskCT16_CRST);
+    pwmp->ct->TMRCTRL = mskCT16_CEN_EN;
     chSysUnlockFromISR();
 }
 
@@ -530,12 +534,12 @@ bool matrix_scan_custom(matrix_row_t current_matrix[]) {
 #endif // DIODE_DIRECTION
     } else if (!matrix_scanned) {
         return false; // Nothing to process until we have the matrix scanned again
-    } else {
-        matrix_scanned = false;
     }
 
     bool changed = memcmp(raw_matrix, shared_matrix, sizeof(shared_matrix)) != 0;
     if (changed) memcpy(raw_matrix, shared_matrix, sizeof(shared_matrix));
+
+    matrix_scanned = false;
 
     return changed;
 }
